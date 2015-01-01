@@ -108,18 +108,38 @@
   (cdr (assoc tag blob)))
 
 (defclass marshal-base ()
-  ((-marshal-info :allocation :class :initform nil :protection :protected)
-   (-type-info :allocation :class :initform nil :protection :protected)
-   (drivers :allocation :class :initform nil)))
+  ((drivers :allocation :class :initform nil)))
+
+(defmethod marshal-get-marshal-info ((obj marshal-base))
+  nil)
+
+(defmethod marshal-get-type-info ((obj marshal-base))
+  nil)
+
+(defun marshal--alist-add (alist key value &optional append)
+  (let ((existing (assoc key alist)))
+    (if (not existing)
+        (cons (cons key value) alist)
+        (setcdr existing (if append
+                             (append (cdr existing) value)
+                           value))
+      alist)))
+
+(defun marshal--alist-merge (alist1 alist2 &optional append)
+  (let ((res alist1))
+    (if alist2
+        (let* ((pair (car alist2))
+               (x (car pair))
+               (y (cdr pair)))
+          (marshal--alist-merge
+           (marshal--alist-add alist1 x y append)
+           (cdr alist2)))
+        alist1)))
 
 (defmethod marshal-register-driver :static ((obj marshal-base) type driver)
-  (let ((existing (assoc type (oref-default obj drivers))))
-    (if existing
-        (setcdr existing driver)
-      (oset-default obj drivers
-                    (cons (cons type driver)
-                          (oref-default obj drivers))))
-    nil))
+  (oset-default obj drivers
+                (marshal--alist-add (oref-default obj drivers) type driver))
+  nil)
 
 (marshal-register-driver 'marshal-base 'assoc 'marshal-driver-assoc)
 
@@ -130,7 +150,7 @@
 
 (defmethod marshal ((obj marshal-base) type)
   (let ((driver (marshal-get-driver obj type))
-        (marshal-info (cdr (assoc type (oref obj -marshal-info))))
+        (marshal-info (cdr (assoc type (marshal-get-marshal-info obj))))
         res)
     (when marshal-info
       (dolist (s (object-slots obj))
@@ -148,14 +168,14 @@
 
 (defmethod unmarshal--obj ((obj marshal-base) blob type)
   (let ((driver (marshal-get-driver obj type))
-        (marshal-info (cdr (assoc type (oref obj -marshal-info)))))
+        (marshal-info (cdr (assoc type (marshal-get-marshal-info obj)))))
     (when marshal-info
       (dolist (s (object-slots obj))
         (let ((tag (cdr (assoc s marshal-info))))
           (when tag
             (eieio-oset obj s
                         (unmarshal
-                         (cdr (assoc s (oref obj -type-info)))
+                         (cdr (assoc s (marshal-get-type-info obj)))
                          (marshal-read driver tag blob)
                          type))))))
     obj))
@@ -190,18 +210,20 @@
 
 (defmacro marshal-defclass (name superclass slots &rest options-and-doc)
   (let ((marshal-info (marshal--transpose-alist2
-                       (mapcar (lambda (s)
-                                 (let ((name (car s)))
-                                   (let ((marshal (plist-get (cdr s) :marshal)))
-                                     (when marshal
-                                       (cons name marshal)))))
-                               slots)))
-        (type-info (mapcar (lambda (s)
-                             (let ((name (car s)))
-                               (let ((type (plist-get (cdr s) :type)))
-                                 (when type
-                                   (cons name type)))))
-                           slots))
+                       (remove nil
+                               (mapcar (lambda (s)
+                                         (let ((name (car s)))
+                                           (let ((marshal (plist-get (cdr s) :marshal)))
+                                             (when marshal
+                                               (cons name marshal)))))
+                                       slots))))
+        (type-info (remove nil
+                           (mapcar (lambda (s)
+                                     (let ((name (car s)))
+                                       (let ((type (plist-get (cdr s) :type)))
+                                         (when type
+                                           (cons name type)))))
+                                   slots)))
         (base-cls (or (plist-get (if (stringp (car options-and-doc))
                                      (cdr options-and-doc)
                                      options-and-doc)
@@ -209,12 +231,12 @@
                       'marshal-base)))
     `(progn
        (defclass ,name (,@superclass ,base-cls)
-         ((-marshal-info :allocation :class
-                         :initform ,marshal-info :protection :protected)
-          (-type-info :allocation :class
-                      :initform ,type-info :protection :protected)
-          ,@slots)
-         ,@options-and-doc))))
+         ,slots
+         ,@options-and-doc)
+       (defmethod marshal-get-marshal-info ((obj ,name))
+                  (marshal--alist-merge (call-next-method) ',marshal-info t))
+       (defmethod marshal-get-type-info ((obj ,name))
+                  (marshal--alist-merge (call-next-method) ',type-info t)))))
 
 (provide 'marshal)
 ;;; marshal.el ends here
