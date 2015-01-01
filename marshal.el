@@ -108,12 +108,14 @@
   (cdr (assoc tag blob)))
 
 (defclass marshal-base ()
-  ((drivers :allocation :class :initform nil)))
+  ((-marshal-info :allocation :class :initform nil :protection :protected)
+   (-type-info :allocation :class :initform nil :protection :protected)
+   (drivers :allocation :class :initform nil)))
 
-(defmethod marshal-get-marshal-info ((obj marshal-base))
+(defmethod marshal-get-marshal-info :static ((obj marshal-base))
   nil)
 
-(defmethod marshal-get-type-info ((obj marshal-base))
+(defmethod marshal-get-type-info :static ((obj marshal-base))
   nil)
 
 (defun marshal--alist-add (alist key value &optional append)
@@ -231,12 +233,27 @@
                       'marshal-base)))
     `(progn
        (defclass ,name (,@superclass ,base-cls)
-         ,slots
+         ((-marshal-info :allocation :class :initform nil :protection :protected)
+          (-type-info :allocation :class :initform nil :protection :protected)
+          ,@slots)
          ,@options-and-doc)
-       (defmethod marshal-get-marshal-info ((obj ,name))
-                  (marshal--alist-merge (call-next-method) ',marshal-info t))
-       (defmethod marshal-get-type-info ((obj ,name))
-                  (marshal--alist-merge (call-next-method) ',type-info t)))))
+       (defmethod marshal-get-marshal-info :static ((obj ,name))
+                  (let ((cls (if (eieio-object-p obj)
+                                 (eieio-object-class obj)
+                                 obj)))
+                    (or (oref-default cls -marshal-info)
+                        (oset-default cls -marshal-info
+                                      (marshal--alist-merge (call-next-method)
+                                                            ',marshal-info t)))))
+       (defmethod marshal-get-type-info :static ((obj ,name))
+                  (let ((cls (if (eieio-object-p obj)
+                                 (eieio-object-class obj)
+                                 obj)))
+                    (or (oref-default cls -type-info)
+                        (oset-default cls -type-info
+                                      (marshal--alist-merge (call-next-method)
+                                                            ',type-info t)))))
+       ,name)))
 
 (provide 'marshal)
 ;;; marshal.el ends here
