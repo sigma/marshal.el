@@ -93,19 +93,19 @@
 (defclass marshal-driver ()
   ())
 
-(defmethod marshal-write ((obj marshal-driver) tag value))
+(defmethod marshal-write ((obj marshal-driver) path value))
 
-(defmethod marshal-read ((obj marshal-driver) tag blob))
+(defmethod marshal-read ((obj marshal-driver) path blob))
 
 (defclass marshal-driver-assoc (marshal-driver)
   ((result :initarg :result :initform nil)))
 
-(defmethod marshal-write ((obj marshal-driver-assoc) tag value)
-  (object-add-to-list obj :result (cons tag value))
+(defmethod marshal-write ((obj marshal-driver-assoc) path value)
+  (object-add-to-list obj :result (cons path value))
   (oref obj :result))
 
-(defmethod marshal-read ((obj marshal-driver-assoc) tag blob)
-  (cdr (assoc tag blob)))
+(defmethod marshal-read ((obj marshal-driver-assoc) path blob)
+  (cdr (assoc path blob)))
 
 (defclass marshal-base ()
   ((-marshal-info :allocation :class :initform nil :protection :protected)
@@ -237,6 +237,7 @@
           (-type-info :allocation :class :initform nil :protection :protected)
           ,@slots)
          ,@options-and-doc)
+
        (defmethod marshal-get-marshal-info :static ((obj ,name))
          (let ((cls (if (eieio-object-p obj)
                         (eieio-object-class obj)
@@ -245,6 +246,7 @@
                (oset-default cls -marshal-info
                              (marshal--alist-merge (call-next-method)
                                                    ',marshal-info t)))))
+
        (defmethod marshal-get-type-info :static ((obj ,name))
          (let ((cls (if (eieio-object-p obj)
                         (eieio-object-class obj)
