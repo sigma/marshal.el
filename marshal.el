@@ -25,7 +25,7 @@
 
 ;;; Commentary:
 
-;; Inspired by Go tagged structs. An 'assoc driver is provided, but
+;; Inspired by Go tagged structs. 'assoc and 'plist drivers are provided, but
 ;; implementing others just requires to inherit from `marshal-driver'. It's
 ;; also possible to maintain a private drivers "namespace", by providing
 ;; the :marshal-base-cls option to `marshal-defclass'. This is particularly
@@ -93,25 +93,28 @@
 ;; 3. Objects involving lists:
 
 ;; (marshal-defclass foo/tree ()
-;;   ((root :initarg :id :marshal ((assoc . root)))
-;;    (leaves :initarg :leaves :marshal ((assoc . leaves)) :marshal-type (list foo/tree))))
+;;   ((root :initarg :id :marshal ((plist . :root)))
+;;    (leaves :initarg :leaves :marshal ((plist . :leaves)) :marshal-type (list foo/tree))))
 
 ;; (marshal (make-instance 'foo/tree :id 0
 ;;            :leaves (list (make-instance 'foo/tree :id 1)
 ;;                          (make-instance 'foo/tree :id 2
 ;;                            :leaves (list (make-instance 'foo/tree :id 3)))))
-;;          'assoc)
-;; => ((leaves ((root . 1)) ((leaves ((root . 3))) (root . 2))) (root . 0))
+;;          'plist)
+;; => (:root 0 :leaves ((:root 1) (:root 2 :leaves ((:root 3)))))
 
-;; (unmarshal 'foo/tree '((leaves ((root . 1)) ((leaves ((root . 3))) (root . 2))) (root . 0)) 'assoc)
-;; [object foo/tree "foo/tree" 0
-;;         ([object foo/tree "foo/tree" 1 nil]
-;;          [object foo/tree "foo/tree" 2
-;;                  ([object foo/tree "foo/tree" 3 nil])])]
+;; (unmarshal 'foo/tree '(:root 0 :leaves ((:root 1) (:root 2 :leaves ((:root 3))))) 'plist)
+
+;; => [object foo/tree "foo/tree" 0
+;;            ([object foo/tree "foo/tree" 1 nil]
+;;             [object foo/tree "foo/tree" 2
+;;                     ([object foo/tree "foo/tree" 3 nil])])]
 
 ;;; Code:
 
 (require 'eieio)
+
+;;; Marshalling driver interface
 
 (defclass marshal-driver ()
   ())
@@ -119,6 +122,8 @@
 (defmethod marshal-write ((obj marshal-driver) path value))
 
 (defmethod marshal-read ((obj marshal-driver) path blob))
+
+;;; alist-based driver
 
 (defclass marshal-driver-assoc (marshal-driver)
   ((result :initarg :result :initform nil)))
@@ -130,16 +135,18 @@
 (defmethod marshal-read ((obj marshal-driver-assoc) path blob)
   (cdr (assoc path blob)))
 
-(defclass marshal-base ()
-  ((-marshal-info :allocation :class :initform nil :protection :protected)
-   (-type-info :allocation :class :initform nil :protection :protected)
-   (drivers :allocation :class :initform nil)))
+;;; plist-based driver
 
-(defmethod marshal-get-marshal-info :static ((obj marshal-base))
-  nil)
+(defclass marshal-driver-plist (marshal-driver)
+  ((result :initarg :result :initform nil)))
 
-(defmethod marshal-get-type-info :static ((obj marshal-base))
-  nil)
+(defmethod marshal-write ((obj marshal-driver-plist) path value)
+  (oset obj :result (plist-put (oref obj :result) path value)))
+
+(defmethod marshal-read ((obj marshal-driver-plist) path blob)
+  (plist-get blob path))
+
+;;; helper functions
 
 (defun marshal--alist-add (alist key value &optional append)
   (let ((existing (assoc key alist)))
@@ -161,12 +168,43 @@
            (cdr alist2)))
         alist1)))
 
+(defun marshal--transpose-alist2 (l)
+  (let (res
+        (rows l))
+    (while rows
+      (let* ((row (car rows))
+             (x (car row))
+             (cols (cdr row)))
+        (while cols
+          (let* ((col (car cols))
+                 (y (car col))
+                 (z (cdr col))
+                 (target (or (assoc y res)
+                             (let ((p (cons y nil)))
+                               (setq res (push p res))
+                               p))))
+            (setcdr target (cons (cons x z) (cdr target))))
+          (setq cols (cdr cols))))
+      (setq rows (cdr rows)))
+    res))
+
+;;; base-class for serializable objects
+
+(defclass marshal-base ()
+  ((-marshal-info :allocation :class :initform nil :protection :protected)
+   (-type-info :allocation :class :initform nil :protection :protected)
+   (drivers :allocation :class :initform nil)))
+
+(defmethod marshal-get-marshal-info :static ((obj marshal-base))
+  nil)
+
+(defmethod marshal-get-type-info :static ((obj marshal-base))
+  nil)
+
 (defmethod marshal-register-driver :static ((obj marshal-base) type driver)
   (oset-default obj drivers
                 (marshal--alist-add (oref-default obj drivers) type driver))
   nil)
-
-(marshal-register-driver 'marshal-base 'assoc 'marshal-driver-assoc)
 
 (defmethod marshal-get-driver ((obj marshal-base) type)
   (let ((cls (or (cdr (assoc type (oref obj drivers)))
@@ -224,26 +262,6 @@
         (t
          blob)))
 
-(defun marshal--transpose-alist2 (l)
-  (let (res
-        (rows l))
-    (while rows
-      (let* ((row (car rows))
-             (x (car row))
-             (cols (cdr row)))
-        (while cols
-          (let* ((col (car cols))
-                 (y (car col))
-                 (z (cdr col))
-                 (target (or (assoc y res)
-                             (let ((p (cons y nil)))
-                               (setq res (push p res))
-                               p))))
-            (setcdr target (cons (cons x z) (cdr target))))
-          (setq cols (cdr cols))))
-      (setq rows (cdr rows)))
-    res))
-
 (defmacro marshal-defclass (name superclass slots &rest options-and-doc)
   (let ((marshal-info (marshal--transpose-alist2
                        (remove nil
@@ -291,6 +309,10 @@
                              (marshal--alist-merge (call-next-method)
                                                    ',type-info t)))))
        ,name)))
+
+;;; Default drivers
+(marshal-register-driver 'marshal-base 'assoc 'marshal-driver-assoc)
+(marshal-register-driver 'marshal-base 'plist 'marshal-driver-plist)
 
 (provide 'marshal)
 ;;; marshal.el ends here
