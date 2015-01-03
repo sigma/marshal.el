@@ -223,7 +223,8 @@
         (type-info (remove nil
                            (mapcar (lambda (s)
                                      (let ((name (car s)))
-                                       (let ((type (plist-get (cdr s) :type)))
+                                       (let ((type (or (plist-get (cdr s) :marshal-type)
+                                                       (plist-get (cdr s) :type))))
                                          (when type
                                            (cons name type)))))
                                    slots)))
