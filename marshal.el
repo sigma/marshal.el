@@ -166,8 +166,11 @@
                                       type)))))))
     res))
 
-(defmethod marshal (obj type)
-  obj)
+(defmethod marshal ((obj nil) type)
+  (cond ((consp obj)
+         (cons (marshal (car obj) type) (marshal (cdr obj) type)))
+        (t
+         obj)))
 
 (defmethod unmarshal--obj ((obj marshal-base) blob type)
   (let ((driver (marshal-get-driver obj type))
@@ -189,7 +192,14 @@
     (unmarshal--obj obj blob type)))
 
 (defmethod unmarshal ((obj nil) blob type)
-  blob)
+  (cond ((and (consp obj)
+              (eq (car obj) 'list))
+         (if (null blob)
+             nil
+           (cons (unmarshal (cadr obj) (car blob) type)
+                 (unmarshal obj (cdr blob) type))))
+        (t
+         blob)))
 
 (defun marshal--transpose-alist2 (l)
   (let (res
