@@ -156,13 +156,14 @@
         res)
     (when marshal-info
       (dolist (s (object-slots obj))
-        (let ((tag (cdr (assoc s marshal-info))))
-          (when (and tag
+        (let ((path (cdr (assoc s marshal-info))))
+          (when (and path
                      (slot-boundp obj s))
             
-            (setq res (marshal-write driver tag (marshal
-                                               (eieio-oref obj s)
-                                               type)))))))
+            (setq res (marshal-write driver path
+                                     (marshal
+                                      (eieio-oref obj s)
+                                      type)))))))
     res))
 
 (defmethod marshal (obj type)
@@ -173,12 +174,12 @@
         (marshal-info (cdr (assoc type (marshal-get-marshal-info obj)))))
     (when marshal-info
       (dolist (s (object-slots obj))
-        (let ((tag (cdr (assoc s marshal-info))))
-          (when tag
+        (let ((path (cdr (assoc s marshal-info))))
+          (when path
             (eieio-oset obj s
                         (unmarshal
                          (cdr (assoc s (marshal-get-type-info obj)))
-                         (marshal-read driver tag blob)
+                         (marshal-read driver path blob)
                          type))))))
     obj))
 
