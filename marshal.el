@@ -33,6 +33,10 @@
 ;; the same driver) without having to register many drivers in the
 ;; global space.
 
+;; Sometimes the types are not enough (for example with lists, whose elements
+;; are not explicitly typed. In those cases, a small extension on top of types
+;; can be used. Like for example :marshal-type (list string)
+
 ;; Examples:
 
 ;; 1. Regular use:
@@ -85,6 +89,25 @@
 
 ;; (unmarshal 'plop '((field_foo . "plop") (field_bar . 0) (field_baz . 1)) 'short)
 ;; => [object plop "plop" "plop" unbound unbound]
+
+;; 3. Objects involving lists:
+
+;; (marshal-defclass foo/tree ()
+;;   ((root :initarg :id :marshal ((assoc . root)))
+;;    (leaves :initarg :leaves :marshal ((assoc . leaves)) :marshal-type (list foo/tree))))
+
+;; (marshal (make-instance 'foo/tree :id 0
+;;            :leaves (list (make-instance 'foo/tree :id 1)
+;;                          (make-instance 'foo/tree :id 2
+;;                            :leaves (list (make-instance 'foo/tree :id 3)))))
+;;          'assoc)
+;; => ((leaves ((root . 1)) ((leaves ((root . 3))) (root . 2))) (root . 0))
+
+;; (unmarshal 'foo/tree '((leaves ((root . 1)) ((leaves ((root . 3))) (root . 2))) (root . 0)) 'assoc)
+;; [object foo/tree "foo/tree" 0
+;;         ([object foo/tree "foo/tree" 1 nil]
+;;          [object foo/tree "foo/tree" 2
+;;                  ([object foo/tree "foo/tree" 3 nil])])]
 
 ;;; Code:
 
