@@ -26,12 +26,7 @@
 ;;; Commentary:
 
 ;; Inspired by Go tagged structs. 'alist and 'plist drivers are provided, but
-;; implementing others just requires to inherit from `marshal-driver'. It's
-;; also possible to maintain a private drivers "namespace", by providing
-;; the :marshal-base-cls option to `marshal-defclass'. This is particularly
-;; useful to maintain different "views" of the same object (potentially using
-;; the same driver) without having to register many drivers in the
-;; global space.
+;; implementing others just requires to inherit from `marshal-driver'.
 
 ;; Sometimes the types are not enough (for example with lists, whose elements
 ;; are not explicitly typed. In those cases, a small extension on top of types
@@ -64,33 +59,7 @@
 ;;  'alist)
 ;; => '((field_beta (field_baz . 1) (field_bar . 0) (field_foo . "plop")) (field_alpha . 42))
 
-;; 2. Namespaced:
-
-;; (defclass my/marshal-base (marshal-base)
-;;   nil)
-
-;; (marshal-register-driver 'my/marshal-base 'full 'marshal-driver-alist)
-;; (marshal-register-driver 'my/marshal-base 'short 'marshal-driver-alist)
-
-;; (marshal-defclass plop ()
-;;   ((foo :initarg :foo :type string :marshal ((full . field_foo) (short . field_foo)))
-;;    (bar :initarg :bar :type integer :marshal ((full . field_bar)))
-;;    (baz :initarg :baz :type integer :marshal ((full . field_baz))))
-;;   :marshal-base-cls my/marshal-base)
-
-;; (marshal (make-instance 'plop :foo "ok" :bar 42) 'full)
-;; => ((field_bar . 42) (field_foo . "ok"))
-
-;; (marshal (make-instance 'plop :foo "ok" :bar 42) 'short)
-;; => ((field_foo . "ok"))
-
-;; (unmarshal 'plop '((field_foo . "plop") (field_bar . 0) (field_baz . 1)) 'full)
-;; => [object plop "plop" "plop" 0 1]
-
-;; (unmarshal 'plop '((field_foo . "plop") (field_bar . 0) (field_baz . 1)) 'short)
-;; => [object plop "plop" "plop" unbound unbound]
-
-;; 3. Objects involving lists:
+;; 2. Objects involving lists:
 
 ;; (marshal-defclass foo/tree ()
 ;;   ((root :initarg :id :marshal ((plist . :root)))
@@ -113,6 +82,13 @@
 ;;; Code:
 
 (require 'eieio)
+
+;;; Defined drivers
+
+(defvar marshal-drivers nil "Alist of drivers")
+
+(defun marshal-register-driver (type driver)
+  (add-to-list 'marshal-drivers (cons type driver)))
 
 ;;; Marshalling driver interface
 
@@ -192,8 +168,7 @@
 
 (defclass marshal-base ()
   ((-marshal-info :allocation :class :initform nil :protection :protected)
-   (-type-info :allocation :class :initform nil :protection :protected)
-   (drivers :allocation :class :initform nil)))
+   (-type-info :allocation :class :initform nil :protection :protected)))
 
 (defmethod marshal-get-marshal-info :static ((obj marshal-base))
   nil)
@@ -201,18 +176,13 @@
 (defmethod marshal-get-type-info :static ((obj marshal-base))
   nil)
 
-(defmethod marshal-register-driver :static ((obj marshal-base) type driver)
-  (oset-default obj drivers
-                (marshal--alist-add (oref-default obj drivers) type driver))
-  nil)
-
-(defmethod marshal-get-driver ((obj marshal-base) type)
-  (let ((cls (or (cdr (assoc type (oref obj drivers)))
+(defun marshal-get-driver (type)
+  (let ((cls (or (cdr (assoc type marshal-drivers))
                  'marshal-driver)))
     (make-instance cls)))
 
 (defmethod marshal ((obj marshal-base) type)
-  (let ((driver (marshal-get-driver obj type))
+  (let ((driver (marshal-get-driver type))
         (marshal-info (cdr (assoc type (marshal-get-marshal-info obj))))
         res)
     (when marshal-info
@@ -234,7 +204,7 @@
          obj)))
 
 (defmethod unmarshal--obj ((obj marshal-base) blob type)
-  (let ((driver (marshal-get-driver obj type))
+  (let ((driver (marshal-get-driver type))
         (marshal-info (cdr (assoc type (marshal-get-marshal-info obj)))))
     (when marshal-info
       (dolist (s (object-slots obj))
@@ -311,8 +281,8 @@
        ,name)))
 
 ;;; Default drivers
-(marshal-register-driver 'marshal-base 'alist 'marshal-driver-alist)
-(marshal-register-driver 'marshal-base 'plist 'marshal-driver-plist)
+(marshal-register-driver 'alist 'marshal-driver-alist)
+(marshal-register-driver 'plist 'marshal-driver-plist)
 
 (provide 'marshal)
 ;;; marshal.el ends here
