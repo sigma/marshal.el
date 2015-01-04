@@ -25,7 +25,7 @@
 
 ;;; Commentary:
 
-;; Inspired by Go tagged structs. 'assoc and 'plist drivers are provided, but
+;; Inspired by Go tagged structs. 'alist and 'plist drivers are provided, but
 ;; implementing others just requires to inherit from `marshal-driver'. It's
 ;; also possible to maintain a private drivers "namespace", by providing
 ;; the :marshal-base-cls option to `marshal-defclass'. This is particularly
@@ -42,26 +42,26 @@
 ;; 1. Regular use:
 
 ;; (marshal-defclass plop ()
-;;   ((foo :initarg :foo :type string :marshal ((assoc . field_foo)))
-;;    (bar :initarg :bar :type integer :marshal ((assoc . field_bar)))
-;;    (baz :initarg :baz :type integer :marshal ((assoc . field_baz)))))
+;;   ((foo :initarg :foo :type string :marshal ((alist . field_foo)))
+;;    (bar :initarg :bar :type integer :marshal ((alist . field_bar)))
+;;    (baz :initarg :baz :type integer :marshal ((alist . field_baz)))))
 
 ;; (marshal-defclass plopi ()
-;;   ((alpha :marshal ((assoc . field_alpha)))
-;;    (beta :type plop :marshal ((assoc . field_beta)))))
+;;   ((alpha :marshal ((alist . field_alpha)))
+;;    (beta :type plop :marshal ((alist . field_beta)))))
 
-;; (marshal (make-instance 'plop :foo "ok" :bar 42) 'assoc)
+;; (marshal (make-instance 'plop :foo "ok" :bar 42) 'alist)
 ;; => '((field_bar . 42) (field_foo . "ok"))
 
-;; (unmarshal 'plop '((field_foo . "plop") (field_bar . 0) (field_baz . 1)) 'assoc)
+;; (unmarshal 'plop '((field_foo . "plop") (field_bar . 0) (field_baz . 1)) 'alist)
 ;; => '[object plop "plop" "plop" 0 1]
 
 ;; (marshal
 ;;  (unmarshal 'plopi '((field_alpha . 42)
 ;;                      (field_beta . ((field_foo . "plop")
 ;;                                     (field_bar . 0)
-;;                                     (field_baz . 1)))) 'assoc)
-;;  'assoc)
+;;                                     (field_baz . 1)))) 'alist)
+;;  'alist)
 ;; => '((field_beta (field_baz . 1) (field_bar . 0) (field_foo . "plop")) (field_alpha . 42))
 
 ;; 2. Namespaced:
@@ -69,8 +69,8 @@
 ;; (defclass my/marshal-base (marshal-base)
 ;;   nil)
 
-;; (marshal-register-driver 'my/marshal-base 'full 'marshal-driver-assoc)
-;; (marshal-register-driver 'my/marshal-base 'short 'marshal-driver-assoc)
+;; (marshal-register-driver 'my/marshal-base 'full 'marshal-driver-alist)
+;; (marshal-register-driver 'my/marshal-base 'short 'marshal-driver-alist)
 
 ;; (marshal-defclass plop ()
 ;;   ((foo :initarg :foo :type string :marshal ((full . field_foo) (short . field_foo)))
@@ -125,14 +125,14 @@
 
 ;;; alist-based driver
 
-(defclass marshal-driver-assoc (marshal-driver)
+(defclass marshal-driver-alist (marshal-driver)
   ((result :initarg :result :initform nil)))
 
-(defmethod marshal-write ((obj marshal-driver-assoc) path value)
+(defmethod marshal-write ((obj marshal-driver-alist) path value)
   (object-add-to-list obj :result (cons path value))
   (oref obj :result))
 
-(defmethod marshal-read ((obj marshal-driver-assoc) path blob)
+(defmethod marshal-read ((obj marshal-driver-alist) path blob)
   (cdr (assoc path blob)))
 
 ;;; plist-based driver
@@ -311,7 +311,7 @@
        ,name)))
 
 ;;; Default drivers
-(marshal-register-driver 'marshal-base 'assoc 'marshal-driver-assoc)
+(marshal-register-driver 'marshal-base 'alist 'marshal-driver-alist)
 (marshal-register-driver 'marshal-base 'plist 'marshal-driver-plist)
 
 (provide 'marshal)
