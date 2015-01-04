@@ -113,6 +113,12 @@
   (when (slot-boundp obj :output)
     (oref obj :output)))
 
+(defmethod marshal-guess-type :static ((obj marshal-driver) blob)
+  (cond ((null blob) nil)
+        ((stringp blob) 'string)
+        ((numberp blob) 'number)
+        ((listp blob) 'list)))
+
 (defmethod marshal-unmarshal-null :static ((obj marshal-driver))
   nil)
 
@@ -125,16 +131,17 @@
 (defmethod marshal-marshal-string :static ((obj marshal-driver) s)
   s)
 
-(defmethod marshal-unmarshal-integer :static ((obj marshal-driver) i)
+(defmethod marshal-unmarshal-number :static ((obj marshal-driver) i)
   i)
 
-(defmethod marshal-marshal-integer :static ((obj marshal-driver) i)
+(defmethod marshal-marshal-number :static ((obj marshal-driver) i)
   i)
 
 (defmethod marshal-unmarshal-list :static ((obj marshal-driver) l l-type)
   (let ((type (or (and (object-p obj) (eieio-object-class obj))
                  obj)))
-    (cons (unmarshal (cadr l-type) (car l) type)
+    (cons (unmarshal (when (consp l-type)
+                       (cadr l-type)) (car l) type)
           (unmarshal l-type (cdr l) type))))
 
 (defmethod marshal-marshal-list :static ((obj marshal-driver) l)
@@ -230,8 +237,11 @@
     (make-instance cls)))
 
 (defmethod marshal ((obj marshal-base) type)
-  (let ((driver (marshal-get-driver type))
-        (marshal-info (cdr (assoc type (marshal-get-marshal-info obj)))))
+  (let* ((type (or (and (class-p type)
+                        (car (rassoc type marshal-drivers)))
+                   type))
+         (driver (marshal-get-driver type))
+         (marshal-info (cdr (assoc type (marshal-get-marshal-info obj)))))
     (marshal-open driver)
     (when marshal-info
       (dolist (s (object-slots obj))
@@ -246,10 +256,15 @@
     (marshal-close driver)))
 
 (defmethod marshal ((obj nil) type)
-  (cond ((consp obj)
-         (cons (marshal (car obj) type) (marshal (cdr obj) type)))
-        (t
-         obj)))
+  (let ((driver (marshal-get-driver type)))
+    (cond ((null obj)
+           (marshal-marshal-null driver))
+          ((stringp obj)
+           (marshal-marshal-string driver obj))
+          ((numberp obj)
+           (marshal-marshal-number driver obj))
+          ((listp obj)
+           (marshal-marshal-list driver obj)))))
 
 (defmethod unmarshal--obj ((obj marshal-base) blob type)
   (let ((driver (marshal-get-driver type))
@@ -269,18 +284,24 @@
 
 (defmethod unmarshal :static ((obj marshal-base) blob type)
   (let ((obj (or (and (object-p obj) obj)
-                 (make-instance obj))))
+                 (make-instance obj)))
+        (type (or (and (class-p type)
+                        (car (rassoc type marshal-drivers)))
+                   type)))
     (unmarshal--obj obj blob type)))
 
 (defmethod unmarshal ((obj nil) blob type)
-  (cond ((and (consp obj)
-              (eq (car obj) 'list))
-         (if (null blob)
-             nil
-           (cons (unmarshal (cadr obj) (car blob) type)
-                 (unmarshal obj (cdr blob) type))))
-        (t
-         blob)))
+  (let* ((driver (marshal-get-driver type))
+         (obj (or obj (marshal-guess-type driver blob))))
+    (cond ((or (null obj) (null blob))
+           (marshal-unmarshal-null driver))
+          ((eq obj 'string)
+           (marshal-unmarshal-string driver blob))
+          ((eq obj 'number)
+           (marshal-unmarshal-number driver blob))
+          ((or (eq obj 'list)
+               (and (consp obj) (eq (car obj) 'list)))
+           (marshal-unmarshal-list driver blob obj)))))
 
 (defmacro marshal-defclass (name superclass slots &rest options-and-doc)
   (let ((marshal-info (marshal--transpose-alist2
