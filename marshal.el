@@ -93,34 +93,47 @@
 ;;; Marshalling driver interface
 
 (defclass marshal-driver ()
-  ())
+  ((input :initarg :input)
+   (output :initarg :output)))
 
-(defmethod marshal-write ((obj marshal-driver) path value))
+(defmethod marshal-open ((obj marshal-driver) &optional input)
+  (if input
+      (oset obj :input input)
+    (oset obj :output nil)))
 
-(defmethod marshal-read ((obj marshal-driver) path blob))
+(defmethod marshal-write ((obj marshal-driver) path value)
+  (unless (slot-boundp obj :output)
+    (error "Driver has not been opened in write mode")))
+
+(defmethod marshal-read ((obj marshal-driver) path)
+  (unless (slot-boundp obj :input)
+    (error "Driver has not been opened in read mode")))
+
+(defmethod marshal-close ((obj marshal-driver))
+  (when (slot-boundp obj :output)
+    (oref obj :output)))
 
 ;;; alist-based driver
 
 (defclass marshal-driver-alist (marshal-driver)
-  ((result :initarg :result :initform nil)))
+  ())
 
 (defmethod marshal-write ((obj marshal-driver-alist) path value)
-  (object-add-to-list obj :result (cons path value))
-  (oref obj :result))
+  (object-add-to-list obj :output (cons path value)))
 
-(defmethod marshal-read ((obj marshal-driver-alist) path blob)
-  (cdr (assoc path blob)))
+(defmethod marshal-read ((obj marshal-driver-alist) path)
+  (cdr (assoc path (oref obj :input))))
 
 ;;; plist-based driver
 
 (defclass marshal-driver-plist (marshal-driver)
-  ((result :initarg :result :initform nil)))
+  ())
 
 (defmethod marshal-write ((obj marshal-driver-plist) path value)
-  (oset obj :result (plist-put (oref obj :result) path value)))
+  (oset obj :output (plist-put (oref obj :output) path value)))
 
-(defmethod marshal-read ((obj marshal-driver-plist) path blob)
-  (plist-get blob path))
+(defmethod marshal-read ((obj marshal-driver-plist) path)
+  (plist-get (oref obj :input) path))
 
 ;;; helper functions
 
@@ -183,19 +196,19 @@
 
 (defmethod marshal ((obj marshal-base) type)
   (let ((driver (marshal-get-driver type))
-        (marshal-info (cdr (assoc type (marshal-get-marshal-info obj))))
-        res)
+        (marshal-info (cdr (assoc type (marshal-get-marshal-info obj)))))
+    (marshal-open driver)
     (when marshal-info
       (dolist (s (object-slots obj))
         (let ((path (cdr (assoc s marshal-info))))
           (when (and path
                      (slot-boundp obj s))
             
-            (setq res (marshal-write driver path
-                                     (marshal
-                                      (eieio-oref obj s)
-                                      type)))))))
-    res))
+            (marshal-write driver path
+                           (marshal
+                            (eieio-oref obj s)
+                            type))))))
+    (marshal-close driver)))
 
 (defmethod marshal ((obj nil) type)
   (cond ((consp obj)
@@ -206,6 +219,7 @@
 (defmethod unmarshal--obj ((obj marshal-base) blob type)
   (let ((driver (marshal-get-driver type))
         (marshal-info (cdr (assoc type (marshal-get-marshal-info obj)))))
+    (marshal-open driver blob)
     (when marshal-info
       (dolist (s (object-slots obj))
         (let ((path (cdr (assoc s marshal-info))))
@@ -213,8 +227,9 @@
             (eieio-oset obj s
                         (unmarshal
                          (cdr (assoc s (marshal-get-type-info obj)))
-                         (marshal-read driver path blob)
+                         (marshal-read driver path)
                          type))))))
+    (marshal-close driver)
     obj))
 
 (defmethod unmarshal :static ((obj marshal-base) blob type)
