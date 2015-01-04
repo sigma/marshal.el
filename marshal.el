@@ -194,7 +194,8 @@
   nil)
 
 (defun marshal-get-driver (type)
-  (let ((cls (or (cdr (assoc type marshal-drivers))
+  (let ((cls (or (and (class-p type) type)
+                 (cdr (assoc type marshal-drivers))
                  'marshal-driver)))
     (make-instance cls)))
 
