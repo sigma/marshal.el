@@ -338,7 +338,13 @@
                                          (let ((name (car s)))
                                            (let ((marshal (plist-get (cdr s) :marshal)))
                                              (when marshal
-                                               (cons name marshal)))))
+                                               (cons name
+                                                     (mapcar
+                                                      (lambda (p)
+                                                        (if (consp p)
+                                                            p
+                                                            (cons p name)))
+                                                      marshal))))))
                                        slots))))
         (type-info (remove nil
                            (mapcar (lambda (s)
