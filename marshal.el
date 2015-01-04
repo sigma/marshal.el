@@ -6,7 +6,7 @@
 ;; Keywords: eieio
 ;; Version: 0.2.0
 ;; URL: https://github.com/sigma/marshal.el
-;; Package-Requires: ((eieio "1.4"))
+;; Package-Requires: ((eieio "1.4") (json "1.4)
 
 ;; This file is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -61,15 +61,15 @@
 
 ;; 2. Objects involving lists:
 
-;; (marshal-defclass foo/tree ()
-;;   ((root :initarg :id :marshal ((plist . :root)))
-;;    (leaves :initarg :leaves :marshal ((plist . :leaves)) :marshal-type (list foo/tree))))
+(marshal-defclass foo/tree ()
+  ((root :initarg :id :marshal ((plist . :root)))
+   (leaves :initarg :leaves :marshal ((plist . :leaves)) :marshal-type (list foo/tree))))
 
-;; (marshal (make-instance 'foo/tree :id 0
-;;            :leaves (list (make-instance 'foo/tree :id 1)
-;;                          (make-instance 'foo/tree :id 2
-;;                            :leaves (list (make-instance 'foo/tree :id 3)))))
-;;          'plist)
+(marshal (make-instance 'foo/tree :id 0
+           :leaves (list (make-instance 'foo/tree :id 1)
+                         (make-instance 'foo/tree :id 2
+                           :leaves (list (make-instance 'foo/tree :id 3)))))
+         'plist)
 ;; => (:root 0 :leaves ((:root 1) (:root 2 :leaves ((:root 3)))))
 
 ;; (unmarshal 'foo/tree '(:root 0 :leaves ((:root 1) (:root 2 :leaves ((:root 3))))) 'plist)
@@ -119,6 +119,12 @@
         ((numberp blob) 'number)
         ((listp blob) 'list)))
 
+(defmethod marshal-preprocess ((obj marshal-driver) blob)
+  blob)
+
+(defmethod marshal-postprocess ((obj marshal-driver) blob)
+  blob)
+
 (defmethod marshal-unmarshal-null :static ((obj marshal-driver))
   nil)
 
@@ -139,16 +145,16 @@
 
 (defmethod marshal-unmarshal-list :static ((obj marshal-driver) l l-type)
   (let ((type (or (and (object-p obj) (eieio-object-class obj))
-                 obj)))
-    (cons (unmarshal (when (consp l-type)
-                       (cadr l-type)) (car l) type)
-          (unmarshal l-type (cdr l) type))))
+                  obj)))
+    (cons (unmarshal-internal (when (consp l-type)
+                                (cadr l-type)) (car l) type)
+          (unmarshal-internal l-type (cdr l) type))))
 
 (defmethod marshal-marshal-list :static ((obj marshal-driver) l)
   (let ((type (or (and (object-p obj) (eieio-object-class obj))
                  obj)))
-    (cons (marshal (car l) type)
-          (marshal (cdr l) type))))
+    (cons (marshal-internal (car l) type)
+          (marshal-internal (cdr l) type))))
 
 ;;; alist-based driver
 
@@ -162,6 +168,17 @@
 (defmethod marshal-read ((obj marshal-driver-alist) path)
   (call-next-method)
   (cdr (assoc path (oref obj :input))))
+
+;;; json driver
+
+(defclass marshal-driver-json (marshal-driver-alist)
+  ())
+
+(defmethod marshal-preprocess ((obj marshal-driver-json) blob)
+  (json-read-from-string (call-next-method)))
+
+(defmethod marshal-postprocess ((obj marshal-driver-json) blob)
+  (json-encode (call-next-method)))
 
 ;;; plist-based driver
 
@@ -236,7 +253,7 @@
                  'marshal-driver)))
     (make-instance cls)))
 
-(defmethod marshal ((obj marshal-base) type)
+(defmethod marshal-internal ((obj marshal-base) type)
   (let* ((type (or (and (class-p type)
                         (car (rassoc type marshal-drivers)))
                    type))
@@ -250,12 +267,12 @@
                      (slot-boundp obj s))
             
             (marshal-write driver path
-                           (marshal
+                           (marshal-internal
                             (eieio-oref obj s)
                             type))))))
     (marshal-close driver)))
 
-(defmethod marshal ((obj nil) type)
+(defmethod marshal-internal ((obj nil) type)
   (let ((driver (marshal-get-driver type)))
     (cond ((null obj)
            (marshal-marshal-null driver))
@@ -266,6 +283,11 @@
           ((listp obj)
            (marshal-marshal-list driver obj)))))
 
+(defun marshal (obj type)
+  (let ((driver (marshal-get-driver type)))
+    (marshal-postprocess driver
+                         (marshal-internal obj type))))
+
 (defmethod unmarshal--obj ((obj marshal-base) blob type)
   (let ((driver (marshal-get-driver type))
         (marshal-info (cdr (assoc type (marshal-get-marshal-info obj)))))
@@ -275,14 +297,14 @@
         (let ((path (cdr (assoc s marshal-info))))
           (when path
             (eieio-oset obj s
-                        (unmarshal
+                        (unmarshal-internal
                          (cdr (assoc s (marshal-get-type-info obj)))
                          (marshal-read driver path)
                          type))))))
     (marshal-close driver)
     obj))
 
-(defmethod unmarshal :static ((obj marshal-base) blob type)
+(defmethod unmarshal-internal :static ((obj marshal-base) blob type)
   (let ((obj (or (and (object-p obj) obj)
                  (make-instance obj)))
         (type (or (and (class-p type)
@@ -290,7 +312,7 @@
                    type)))
     (unmarshal--obj obj blob type)))
 
-(defmethod unmarshal ((obj nil) blob type)
+(defmethod unmarshal-internal ((obj nil) blob type)
   (let* ((driver (marshal-get-driver type))
          (obj (or obj (marshal-guess-type driver blob))))
     (cond ((or (null obj) (null blob))
@@ -302,6 +324,10 @@
           ((or (eq obj 'list)
                (and (consp obj) (eq (car obj) 'list)))
            (marshal-unmarshal-list driver blob obj)))))
+
+(defun unmarshal (obj blob type)
+  (let ((driver (marshal-get-driver type)))
+    (unmarshal-internal obj (marshal-preprocess driver blob) type)))
 
 (defmacro marshal-defclass (name superclass slots &rest options-and-doc)
   (let ((marshal-info (marshal--transpose-alist2
@@ -354,6 +380,7 @@
 ;;; Default drivers
 (marshal-register-driver 'alist 'marshal-driver-alist)
 (marshal-register-driver 'plist 'marshal-driver-plist)
+(marshal-register-driver 'json 'marshal-driver-json)
 
 (provide 'marshal)
 ;;; marshal.el ends here
