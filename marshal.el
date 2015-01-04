@@ -175,7 +175,9 @@
   ())
 
 (defmethod marshal-preprocess ((obj marshal-driver-json) blob)
-  (json-read-from-string (call-next-method)))
+  (let ((json-array-type 'list)
+        (json-object-type 'alist))
+    (json-read-from-string (call-next-method))))
 
 (defmethod marshal-postprocess ((obj marshal-driver-json) blob)
   (json-encode (call-next-method)))
