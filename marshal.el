@@ -119,9 +119,11 @@
   ())
 
 (defmethod marshal-write ((obj marshal-driver-alist) path value)
+  (call-next-method)
   (object-add-to-list obj :output (cons path value)))
 
 (defmethod marshal-read ((obj marshal-driver-alist) path)
+  (call-next-method)
   (cdr (assoc path (oref obj :input))))
 
 ;;; plist-based driver
@@ -130,9 +132,11 @@
   ())
 
 (defmethod marshal-write ((obj marshal-driver-plist) path value)
+  (call-next-method)
   (oset obj :output (plist-put (oref obj :output) path value)))
 
 (defmethod marshal-read ((obj marshal-driver-plist) path)
+  (call-next-method)
   (plist-get (oref obj :input) path))
 
 ;;; helper functions
