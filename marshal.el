@@ -25,8 +25,9 @@
 
 ;;; Commentary:
 
-;; Inspired by Go tagged structs. 'alist and 'plist drivers are provided, but
-;; implementing others just requires to inherit from `marshal-driver'.
+;; Inspired by Go tagged structs. 'alist, 'plist and 'json drivers are
+;; provided, but implementing others just requires to inherit from
+;; `marshal-driver'.
 
 ;; Sometimes the types are not enough (for example with lists, whose elements
 ;; are not explicitly typed. In those cases, a small extension on top of types
@@ -61,15 +62,15 @@
 
 ;; 2. Objects involving lists:
 
-(marshal-defclass foo/tree ()
-  ((root :initarg :id :marshal ((plist . :root)))
-   (leaves :initarg :leaves :marshal ((plist . :leaves)) :marshal-type (list foo/tree))))
+;; (marshal-defclass foo/tree ()
+;;   ((root :initarg :id :marshal ((plist . :root)))
+;;    (leaves :initarg :leaves :marshal ((plist . :leaves)) :marshal-type (list foo/tree))))
 
-(marshal (make-instance 'foo/tree :id 0
-           :leaves (list (make-instance 'foo/tree :id 1)
-                         (make-instance 'foo/tree :id 2
-                           :leaves (list (make-instance 'foo/tree :id 3)))))
-         'plist)
+;; (marshal (make-instance 'foo/tree :id 0
+;;            :leaves (list (make-instance 'foo/tree :id 1)
+;;                          (make-instance 'foo/tree :id 2
+;;                            :leaves (list (make-instance 'foo/tree :id 3)))))
+;;          'plist)
 ;; => (:root 0 :leaves ((:root 1) (:root 2 :leaves ((:root 3)))))
 
 ;; (unmarshal 'foo/tree '(:root 0 :leaves ((:root 1) (:root 2 :leaves ((:root 3))))) 'plist)
@@ -78,6 +79,21 @@
 ;;            ([object foo/tree "foo/tree" 1 nil]
 ;;             [object foo/tree "foo/tree" 2
 ;;                     ([object foo/tree "foo/tree" 3 nil])])]
+
+;; 3. Json
+
+;; (marshal (make-instance 'foo/tree :id 0
+;;            :leaves (list (make-instance 'foo/tree :id 1)
+;;                          (make-instance 'foo/tree :id 2
+;;                            :leaves (list (make-instance 'foo/tree :id 3)))))
+;;          'json)
+;; => "{\"leaves\":[{\"root\":1},{\"leaves\":[{\"root\":3}],\"root\":2}],\"root\":0}"
+
+;; (unmarshal 'foo/tree "{\"leaves\":[{\"root\":1},{\"leaves\":[{\"root\":3}],\"root\":2}],\"root\":0}" 'json)
+;; => [object foo/tree "foo/tree" 0
+;;         ([object foo/tree "foo/tree" 1 nil]
+;;          [object foo/tree "foo/tree" 2
+;;                  ([object foo/tree "foo/tree" 3 nil])])]
 
 ;;; Code:
 
