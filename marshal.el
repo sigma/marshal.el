@@ -113,6 +113,36 @@
   (when (slot-boundp obj :output)
     (oref obj :output)))
 
+(defmethod marshal-unmarshal-null :static ((obj marshal-driver))
+  nil)
+
+(defmethod marshal-marshal-null :static ((obj marshal-driver))
+  nil)
+
+(defmethod marshal-unmarshal-string :static ((obj marshal-driver) s)
+  s)
+
+(defmethod marshal-marshal-string :static ((obj marshal-driver) s)
+  s)
+
+(defmethod marshal-unmarshal-integer :static ((obj marshal-driver) i)
+  i)
+
+(defmethod marshal-marshal-integer :static ((obj marshal-driver) i)
+  i)
+
+(defmethod marshal-unmarshal-list :static ((obj marshal-driver) l l-type)
+  (let ((type (or (and (object-p obj) (eieio-object-class obj))
+                 obj)))
+    (cons (unmarshal (cadr l-type) (car l) type)
+          (unmarshal l-type (cdr l) type))))
+
+(defmethod marshal-marshal-list :static ((obj marshal-driver) l)
+  (let ((type (or (and (object-p obj) (eieio-object-class obj))
+                 obj)))
+    (cons (marshal (car l) type)
+          (marshal (cdr l) type))))
+
 ;;; alist-based driver
 
 (defclass marshal-driver-alist (marshal-driver)
