@@ -297,7 +297,7 @@
            (marshal-unmarshal-null driver))
           ((eq obj 'string)
            (marshal-unmarshal-string driver blob))
-          ((eq obj 'number)
+          ((memq obj '(number integer))
            (marshal-unmarshal-number driver blob))
           ((or (eq obj 'list)
                (and (consp obj) (eq (car obj) 'list)))
