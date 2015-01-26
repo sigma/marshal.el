@@ -352,33 +352,38 @@
     (unmarshal-internal obj (marshal-preprocess driver blob) type)))
 
 (defmacro marshal-defclass (name superclass slots &rest options-and-doc)
-  (let ((marshal-info (marshal--transpose-alist2
-                       (remove nil
-                               (mapcar (lambda (s)
-                                         (let ((name (car s)))
-                                           (let ((marshal (plist-get (cdr s) :marshal)))
-                                             (when marshal
-                                               (cons name
-                                                     (mapcar
-                                                      (lambda (p)
-                                                        (if (consp p)
-                                                            p
-                                                            (cons p name)))
-                                                      marshal))))))
-                                       slots))))
-        (type-info (remove nil
-                           (mapcar (lambda (s)
-                                     (let ((name (car s)))
-                                       (let ((type (or (plist-get (cdr s) :marshal-type)
-                                                       (plist-get (cdr s) :type))))
-                                         (when type
-                                           (cons name type)))))
-                                   slots)))
-        (base-cls (or (plist-get (if (stringp (car options-and-doc))
-                                     (cdr options-and-doc)
-                                     options-and-doc)
-                                 :marshal-base-cls)
-                      'marshal-base)))
+  (let* ((options (if (stringp (car options-and-doc))
+                      (cdr options-and-doc)
+                      options-and-doc))
+         (default-spec-func (or (plist-get options :marshal-default-spec)
+                                'ignore))
+         (base-cls (or (plist-get options :marshal-base-cls)
+                       'marshal-base))
+         (marshal-info (marshal--transpose-alist2
+                        (remove nil
+                                (mapcar
+                                 (lambda (s)
+                                   (let ((name (car s)))
+                                     (let ((marshal
+                                            (or (plist-get (cdr s) :marshal)
+                                                (funcall default-spec-func name))))
+                                       (when marshal
+                                         (cons name
+                                               (mapcar
+                                                (lambda (p)
+                                                  (if (consp p)
+                                                      p
+                                                      (cons p name)))
+                                                marshal))))))
+                                 slots))))
+         (type-info (remove nil
+                            (mapcar (lambda (s)
+                                      (let ((name (car s)))
+                                        (let ((type (or (plist-get (cdr s) :marshal-type)
+                                                        (plist-get (cdr s) :type))))
+                                          (when type
+                                            (cons name type)))))
+                                    slots))))
     `(progn
        (defclass ,name (,@superclass ,base-cls)
          ((-marshal-info :allocation :class :initform nil :protection :protected)
