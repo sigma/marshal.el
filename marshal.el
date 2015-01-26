@@ -389,7 +389,8 @@
          ((-marshal-info :allocation :class :initform nil :protection :protected)
           (-type-info :allocation :class :initform nil :protection :protected)
           ,@slots)
-         ,@options-and-doc)
+         ,@options-and-doc
+         :method-invocation-order :c3)
 
        (defmethod marshal-get-marshal-info :static ((obj ,name))
          (let ((cls (if (eieio-object-p obj)
