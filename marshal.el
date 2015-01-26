@@ -310,7 +310,7 @@
   (let ((driver (marshal-get-driver type))
         (marshal-info (cdr (assoc type (marshal-get-marshal-info obj)))))
     (marshal-open driver blob)
-    (when marshal-info
+    (when (and marshal-info blob)
       (dolist (s (object-slots obj))
         (let ((path (cdr (assoc s marshal-info))))
           (when path
