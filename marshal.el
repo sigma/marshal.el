@@ -4,7 +4,7 @@
 
 ;; Author: Yann Hodique <hodiquey@vmware.com>
 ;; Keywords: eieio
-;; Version: 0.4.0
+;; Version: 0.4.1
 ;; URL: https://github.com/sigma/marshal.el
 ;; Package-Requires: ((eieio "1.4") (json "1.4"))
 
@@ -97,6 +97,7 @@
 
 ;;; Code:
 
+(require 'json)
 (require 'eieio)
 
 ;;; Defined drivers
@@ -352,6 +353,7 @@
     (unmarshal-internal obj (marshal-preprocess driver blob) type)))
 
 (defmacro marshal-defclass (name superclass slots &rest options-and-doc)
+  (declare (debug t))
   (let* ((options (if (stringp (car options-and-doc))
                       (cdr options-and-doc)
                       options-and-doc))
@@ -390,7 +392,8 @@
           (-type-info :allocation :class :initform nil :protection :protected)
           ,@slots)
          ,@options-and-doc
-         :method-invocation-order :c3)
+         ,@(unless (> emacs-major-version 24)
+                   (list :method-invocation-order :c3)))
 
        (defmethod marshal-get-marshal-info :static ((obj ,name))
          (let ((cls (if (eieio-object-p obj)
