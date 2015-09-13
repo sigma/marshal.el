@@ -6,7 +6,7 @@
 ;; Keywords: eieio
 ;; Version: 0.4.1
 ;; URL: https://github.com/sigma/marshal.el
-;; Package-Requires: ((eieio "1.4") (json "1.4"))
+;; Package-Requires: ((eieio "1.4") (json "1.3"))
 
 ;; This file is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -99,6 +99,21 @@
 
 (require 'json)
 (require 'eieio)
+
+;;; eieio backward-compatibility
+(dolist (sym '(object-class object-p oref oset))
+  (let ((new-sym (intern (concat "eieio-" (symbol-name sym)))))
+    (unless (fboundp new-sym)
+      (fset new-sym sym))))
+
+;;; json hotfix
+(when (json-alist-p '(((foo))))
+  (defun json-alist-p (list)
+    (while (consp list)
+      (setq list (if (and (consp (car list)) (atom (caar list)))
+                     (cdr list)
+                   'not-alist)))
+    (null list)))
 
 ;;; Defined drivers
 
