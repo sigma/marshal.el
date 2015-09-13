@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/sigma/marshal.el.svg?branch=master)](https://travis-ci.org/sigma/marshal.el)
+
 EIEIO marshalling, inspired by Go tagged structs.
 
 An 'assoc driver is provided, but implementing others just requires to inherit
