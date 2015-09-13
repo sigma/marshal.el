@@ -1,4 +1,4 @@
-;;; marshal-tests.el --- tests for marshal.el
+;;; marshal-test.el --- test for marshal.el
 
 ;; Copyright (C) 2015  Yann Hodique
 
@@ -29,66 +29,76 @@
 (require 'ert)
 (require 'marshal)
 
-(marshal-defclass marshal-tests:plop ()
+(marshal-defclass marshal-test:plop ()
   ((foo :initarg :foo :type string :marshal ((alist . field_foo)))
    (bar :initarg :bar :type integer :marshal ((alist . field_bar)))
    (baz :initarg :baz :type integer :marshal ((alist . field_baz)))))
 
-(marshal-defclass marshal-tests:plopi ()
+(marshal-defclass marshal-test:plopi ()
   ((alpha :marshal ((alist . field_alpha)))
-   (beta :type marshal-tests:plop :marshal ((alist . field_beta)))))
+   (beta :type marshal-test:plop :marshal ((alist . field_beta)))))
 
-(ert-deftest marshal-tests:basic-alist-marshal ()
+(ert-deftest marshal-test:basic-alist-marshal ()
   (let ((m
-         (marshal (make-instance 'marshal-tests:plop :foo "ok" :bar 42) 'alist)))
+         (marshal (make-instance 'marshal-test:plop :foo "ok" :bar 42) 'alist)))
     (should (equal (cdr (assoc 'field_foo m)) "ok"))
     (should (equal (cdr (assoc 'field_bar m)) 42))))
 
-(ert-deftest marshal-tests:basic-alist-unmarshal ()
+(ert-deftest marshal-test:basic-alist-unmarshal ()
   (let ((obj
-         (unmarshal 'marshal-tests:plop
+         (unmarshal 'marshal-test:plop
                     '((field_foo . "plop") (field_bar . 0) (field_baz . 1))
                     'alist)))
     (should (equal (oref obj :foo) "plop"))
     (should (equal (oref obj :bar) 0))
     (should (equal (oref obj :baz) 1))))
 
-(marshal-defclass marshal-tests:tree ()
+(marshal-defclass marshal-test:tree ()
   ((root :initarg :id :marshal ((plist . :root) json))
    (leaves :initarg :leaves :initform nil :marshal ((plist . :leaves) json)
-           :marshal-type (list marshal-tests:tree))))
+           :marshal-type (list marshal-test:tree))))
 
-(ert-deftest marshal-tests:plist-tree-idempotent ()
+(ert-deftest marshal-test:plist-tree-idempotent ()
   (let ((obj
          (make-instance
-          'marshal-tests:tree :id 0
+          'marshal-test:tree :id 0
           :leaves (list (make-instance
-                         'marshal-tests:tree :id 1)
+                         'marshal-test:tree :id 1)
                         (make-instance
-                         'marshal-tests:tree :id 2
+                         'marshal-test:tree :id 2
                          :leaves (list (make-instance
-                                        'marshal-tests:tree
+                                        'marshal-test:tree
                                         :id 3)))))))
     (should (equal obj
-                   (unmarshal 'marshal-tests:tree
+                   (unmarshal 'marshal-test:tree
                               (marshal obj 'plist)
                               'plist)))))
 
-(ert-deftest marshal-tests:json-tree-idempotent ()
+(ert-deftest marshal-test:json-tree-idempotent ()
   (let ((obj
          (make-instance
-          'marshal-tests:tree :id 0
+          'marshal-test:tree :id 0
           :leaves (list (make-instance
-                         'marshal-tests:tree :id 1)
+                         'marshal-test:tree :id 1)
                         (make-instance
-                         'marshal-tests:tree :id 2
+                         'marshal-test:tree :id 2
                          :leaves (list (make-instance
-                                        'marshal-tests:tree
+                                        'marshal-test:tree
                                         :id 3)))))))
     (should (equal obj
-                   (unmarshal 'marshal-tests:tree
+                   (unmarshal 'marshal-test:tree
                               (marshal obj 'json)
                               'json)))))
 
-(provide 'marshal-tests)
-;;; marshal-tests.el ends here
+(marshal-defclass marshal-test:bool ()
+  ((foo :initarg :foo :marshal-type bool :marshal (json))))
+
+(ert-deftest marshal-test:json-bool-idempotent ()
+  (let ((obj (make-instance 'marshal-test:bool :foo t)))
+    (should (equal obj
+                   (unmarshal 'marshal-test:bool
+                              (marshal obj 'json)
+                              'json)))))
+
+(provide 'marshal-test)
+;;; marshal-test.el ends here

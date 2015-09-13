@@ -147,6 +147,7 @@
 
 (defmethod marshal-guess-type :static ((obj marshal-driver) blob)
   (cond ((null blob) nil)
+        ((booleanp blob) 'bool)
         ((stringp blob) 'string)
         ((numberp blob) 'number)
         ((listp blob) 'list)))
@@ -174,6 +175,12 @@
 
 (defmethod marshal-marshal-number :static ((obj marshal-driver) i)
   i)
+
+(defmethod marshal-unmarshal-bool :static ((obj marshal-driver) b)
+  (equal b t))
+
+(defmethod marshal-marshal-bool :static ((obj marshal-driver) b)
+  (equal b t))
 
 (defmethod marshal-unmarshal-list :static ((obj marshal-driver) l l-type)
   (let ((type (or (and (object-p obj) (eieio-object-class obj))
@@ -213,6 +220,12 @@
 
 (defmethod marshal-postprocess ((obj marshal-driver-json) blob)
   (json-encode (call-next-method)))
+
+(defmethod marshal-unmarshal-bool :static ((obj marshal-driver-json) b)
+  (not (eq b json-false)))
+
+(defmethod marshal-marshal-bool :static ((obj marshal-driver-json) b)
+  (or b json-false))
 
 ;;; plist-based driver
 
@@ -310,6 +323,8 @@
   (let ((driver (marshal-get-driver type)))
     (cond ((null obj)
            (marshal-marshal-null driver))
+          ((booleanp obj)
+           (marshal-marshal-bool driver obj))
           ((stringp obj)
            (marshal-marshal-string driver obj))
           ((numberp obj)
@@ -349,6 +364,8 @@
          (obj (or obj (marshal-guess-type driver blob))))
     (cond ((or (null obj) (null blob))
            (marshal-unmarshal-null driver))
+          ((eq obj 'bool)
+           (marshal-unmarshal-bool driver blob))
           ((eq obj 'string)
            (marshal-unmarshal-string driver blob))
           ((memq obj '(number integer))
