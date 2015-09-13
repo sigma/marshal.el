@@ -190,10 +190,11 @@
           (unmarshal-internal l-type (cdr l) type))))
 
 (defmethod marshal-marshal-list :static ((obj marshal-driver) l)
-  (let ((type (or (and (object-p obj) (eieio-object-class obj))
-                 obj)))
-    (cons (marshal-internal (car l) type)
-          (marshal-internal (cdr l) type))))
+  (unless (null l)
+    (let ((type (or (and (object-p obj) (eieio-object-class obj))
+                    obj)))
+      (cons (marshal-internal (car l) type)
+            (marshal-internal (cdr l) type)))))
 
 ;;; alist-based driver
 
@@ -300,7 +301,7 @@
                  'marshal-driver)))
     (make-instance cls)))
 
-(defmethod marshal-internal ((obj marshal-base) type)
+(defmethod marshal-internal ((obj marshal-base) type &optional hint)
   (let* ((type (or (and (class-p type)
                         (car (rassoc type marshal-drivers)))
                    type))
@@ -316,14 +317,16 @@
             (marshal-write driver path
                            (marshal-internal
                             (eieio-oref obj s)
-                            type))))))
+                            type
+                            (cdr (assoc s (marshal-get-type-info obj)))))))))
     (marshal-close driver)))
 
-(defmethod marshal-internal ((obj nil) type)
+(defmethod marshal-internal ((obj nil) type &optional hint)
   (let ((driver (marshal-get-driver type)))
-    (cond ((null obj)
+    (cond ((and (null hint) (null obj))
            (marshal-marshal-null driver))
-          ((booleanp obj)
+          ((or (eq obj t)
+               (and (null obj) (eq hint 'bool)))
            (marshal-marshal-bool driver obj))
           ((stringp obj)
            (marshal-marshal-string driver obj))
