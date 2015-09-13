@@ -93,12 +93,17 @@
 (marshal-defclass marshal-test:bool ()
   ((foo :initarg :foo :marshal-type bool :marshal (json))))
 
-(ert-deftest marshal-test:json-bool-idempotent ()
-  (let ((obj (make-instance 'marshal-test:bool :foo t)))
-    (should (equal obj
-                   (unmarshal 'marshal-test:bool
-                              (marshal obj 'json)
-                              'json)))))
+(ert-deftest marshal-test:json-bool-true-idempotent ()
+  (let ((obj (make-instance 'marshal-test:bool :foo t))
+        (repr "{\"foo\":true}"))
+    (should (equal repr (marshal obj 'json)))
+    (should (equal obj (unmarshal 'marshal-test:bool repr 'json)))))
+
+(ert-deftest marshal-test:json-bool-false-idempotent ()
+  (let ((obj (make-instance 'marshal-test:bool :foo nil))
+        (repr "{\"foo\":false}"))
+    (should (equal repr (marshal obj 'json)))
+    (should (equal obj (unmarshal 'marshal-test:bool repr 'json)))))
 
 (provide 'marshal-test)
 ;;; marshal-test.el ends here
