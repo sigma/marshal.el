@@ -17,3 +17,6 @@ install:
   - cask
 script:
   make travis-ci
+notifications:
+  slack:
+    secure: M2ZIpMSC3gfknh+FkJ4r09RWbiFLXwHy2ZoIVcRVQL800kvZ+2oTOy1HtD8KDgPQ2LLupJeTNt6BjR9HQLzBJf+1tVG6V5i9sWAIJ4lhGJofeCNIt67yth7jfJk/uEk8NMJrmJbLHptBEh0qMroRwMP9vWaTLzDYYMYUzWI1KHc=
