@@ -2,7 +2,7 @@
 
 EIEIO marshalling, inspired by Go tagged structs.
 
-An 'assoc driver is provided, but implementing others just requires to inherit
+alist, plist and json drivers are provided, but implementing others just requires to inherit
 from `marshal-driver'.
 
 It's also possible to maintain a private drivers "namespace", by providing
