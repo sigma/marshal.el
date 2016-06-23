@@ -1,7 +1,7 @@
 (source gnu)
 (source melpa-stable)
 
-(package "marshal" "0.5.3"
+(package "marshal" "0.6.0"
          "eieio extension for automatic (un)marshalling.")
 
 (depends-on "eieio" "1.4")

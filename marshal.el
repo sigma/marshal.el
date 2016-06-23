@@ -4,7 +4,7 @@
 
 ;; Author: Yann Hodique <hodiquey@vmware.com>
 ;; Keywords: eieio
-;; Version: 0.5.3
+;; Version: 0.6.0
 ;; URL: https://github.com/sigma/marshal.el
 ;; Package-Requires: ((eieio "1.4") (json "1.3"))
 
