@@ -105,5 +105,17 @@
     (should (equal repr (marshal obj 'json)))
     (should (equal obj (unmarshal 'marshal-test:bool repr 'json)))))
 
+(marshal-defclass marshal-test:level0 ()
+  ((zero :marshal ((alist . field_zero)))))
+
+(marshal-defclass marshal-test:level1 (marshal-test:level0)
+  ((one :marshal ((alist . field_one)))))
+
+(marshal-defclass marshal-test:level2 (marshal-test:level1)
+  ((two :marshal ((alist . field_two)))))
+
+(ert-deftest marshal-test:inheritance-levels ()
+  (should (equal 3 (length (cdar (marshal-get-marshal-info 'marshal-test:level2))))))
+
 (provide 'marshal-test)
 ;;; marshal-test.el ends here
