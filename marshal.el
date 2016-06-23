@@ -247,9 +247,9 @@
   (let ((existing (assoc key alist)))
     (if (not existing)
         (cons (cons key value) alist)
-        (setcdr existing (if append
-                             (append (cdr existing) value)
-                           value))
+      (setcdr existing (if append
+                           (append (cdr existing) value)
+                         value))
       alist)))
 
 (defun marshal--alist-merge (alist1 alist2 &optional append)
@@ -423,9 +423,7 @@
                                     slots))))
     `(progn
        (defclass ,name (,@superclass ,base-cls)
-         ((-marshal-info :allocation :class :initform nil :protection :protected)
-          (-type-info :allocation :class :initform nil :protection :protected)
-          ,@slots)
+         (,@slots)
          ,@options-and-doc
          ,@(unless (> emacs-major-version 24)
                    (list :method-invocation-order :c3)))
@@ -433,20 +431,27 @@
        (defmethod marshal-get-marshal-info :static ((obj ,name))
          (let ((cls (if (eieio-object-p obj)
                         (eieio-object-class obj)
-                        obj)))
-           (or (oref-default cls -marshal-info)
-               (oset-default cls -marshal-info
-                             (marshal--alist-merge (call-next-method)
-                                                   ',marshal-info t)))))
+                      obj)))
+           (get cls :marshal-info)))
+
+       (put ',name :marshal-info ',marshal-info)
+       (dolist (cls ',superclass)
+         (put ',name :marshal-info
+              (marshal--alist-merge (get ',name :marshal-info)
+                                    (marshal-get-marshal-info cls) t)))
 
        (defmethod marshal-get-type-info :static ((obj ,name))
          (let ((cls (if (eieio-object-p obj)
                         (eieio-object-class obj)
                         obj)))
-           (or (oref-default cls -type-info)
-               (oset-default cls -type-info
-                             (marshal--alist-merge (call-next-method)
-                                                   ',type-info t)))))
+           (get cls :type-info)))
+
+       (put ',name :type-info ',type-info)
+       (dolist (cls ',superclass)
+         (put ',name :type-info
+              (marshal--alist-merge (get ',name :type-info)
+                                    (marshal-get-type-info cls) t)))
+
        ,name)))
 
 ;;; Default drivers
