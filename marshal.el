@@ -335,6 +335,7 @@
           ((listp obj)
            (marshal-marshal-list driver obj)))))
 
+;;;###autoload
 (defun marshal (obj type)
   (let ((driver (marshal-get-driver type)))
     (marshal-postprocess driver
@@ -383,10 +384,12 @@
                   type)))
     (unmarshal--obj obj blob type)))
 
+;;;###autoload
 (defun unmarshal (obj blob type)
   (let ((driver (marshal-get-driver type)))
     (unmarshal-internal obj (marshal-preprocess driver blob) type)))
 
+;;;###autoload
 (defmacro marshal-defclass (name superclass slots &rest options-and-doc)
   (declare (debug t))
   (let* ((options (if (stringp (car options-and-doc))
