@@ -427,11 +427,7 @@
     `(progn
        (defclass ,name (,@superclass ,base-cls)
          (,@slots)
-         ,@options-and-doc
-         ;; workaround bug in emacs 25 pretest, fixed in rc...
-         ,@(unless (and (= emacs-major-version 25)
-                        (= emacs-minor-version 0))
-                   (list :method-invocation-order :c3)))
+         ,@options-and-doc)
 
        (defmethod marshal-get-marshal-info :static ((obj ,name))
          (let ((cls (if (eieio-object-p obj)
