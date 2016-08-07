@@ -27,6 +27,7 @@
 ;;; Code:
 
 (require 'ert)
+(require 'ht)
 (require 'marshal)
 
 (marshal-defclass marshal-test:plop ()
@@ -116,6 +117,26 @@
 
 (ert-deftest marshal-test:inheritance-levels ()
   (should (equal 3 (length (cdar (marshal-get-marshal-info 'marshal-test:level2))))))
+
+(marshal-defclass marshal-test:recursive-hash ()
+  ((dict :initarg :dict :marshal-type (hash string marshal-test:recursive-hash) :marshal (json))))
+
+(ert-deftest marshal-test:json-recursive-hash-idempotent ()
+  (let* ((level0 (ht-create))
+         (level1 (ht-create))
+         (obj0 (make-instance
+                'marshal-test:recursive-hash
+                :dict level0))
+         (obj1 (make-instance
+                'marshal-test:recursive-hash
+                :dict level1)))
+    (ht-set level0 "plop" obj1)
+    (should (equal (marshal obj0 'json)
+                   (marshal
+                    (unmarshal 'marshal-test:recursive-hash
+                               (marshal obj0 'json)
+                               'json)
+                    'json)))))
 
 (provide 'marshal-test)
 ;;; marshal-test.el ends here

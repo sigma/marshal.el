@@ -6,7 +6,7 @@
 ;; Keywords: eieio
 ;; Version: 0.6.3
 ;; URL: https://github.com/sigma/marshal.el
-;; Package-Requires: ((eieio "1.4") (json "1.3"))
+;; Package-Requires: ((eieio "1.4") (json "1.3") (ht "2.1"))
 
 ;; This file is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -99,6 +99,7 @@
 
 (require 'json)
 (require 'eieio)
+(require 'ht)
 
 ;;; eieio backward-compatibility
 (dolist (sym '(object-class object-p oref oset))
@@ -150,7 +151,8 @@
         ((booleanp blob) 'bool)
         ((stringp blob) 'string)
         ((numberp blob) 'number)
-        ((listp blob) 'list)))
+        ((listp blob) 'list)
+        ((ht? blob) 'hash)))
 
 (defmethod marshal-preprocess ((obj marshal-driver) blob)
   blob)
@@ -165,7 +167,7 @@
   nil)
 
 (defmethod marshal-unmarshal-string :static ((obj marshal-driver) s)
-  s)
+  (format "%s" s))
 
 (defmethod marshal-marshal-string :static ((obj marshal-driver) s)
   s)
@@ -186,7 +188,8 @@
   (let ((type (or (and (object-p obj) (eieio-object-class obj))
                   obj)))
     (cons (unmarshal-internal (when (consp l-type)
-                                (cadr l-type)) (car l) type)
+                                (cadr l-type))
+                              (car l) type)
           (unmarshal-internal l-type (cdr l) type))))
 
 (defmethod marshal-marshal-list :static ((obj marshal-driver) l)
@@ -195,6 +198,25 @@
                     obj)))
       (cons (marshal-internal (car l) type)
             (marshal-internal (cdr l) type)))))
+
+(defmethod marshal-unmarshal-hash :static ((obj marshal-driver) h h-type)
+  (let ((type (or (and (object-p obj) (eieio-object-class obj))
+                  obj))
+        (k-type (when (consp h-type) (nth 1 h-type)))
+        (v-type (when (consp h-type) (nth 2 h-type))))
+    (ht<-alist
+     (mapcar (lambda (item)
+               (cons (unmarshal-internal k-type (car item) type)
+                     (unmarshal-internal v-type (cdr item) type))) h))))
+
+(defmethod marshal-marshal-hash :static ((obj marshal-driver) h)
+  (unless (ht-empty? h)
+    (let ((type (or (and (object-p obj) (eieio-object-class obj))
+                    obj)))
+      (mapcar (lambda (item)
+                (cons (marshal-internal (car item) type)
+                      (marshal-internal (cadr item) type)))
+              (ht-items h)))))
 
 ;;; alist-based driver
 
@@ -333,7 +355,9 @@
           ((numberp obj)
            (marshal-marshal-number driver obj))
           ((listp obj)
-           (marshal-marshal-list driver obj)))))
+           (marshal-marshal-list driver obj))
+          ((ht? obj)
+           (marshal-marshal-hash driver obj)))))
 
 ;;;###autoload
 (defun marshal (obj type)
@@ -376,7 +400,10 @@
            (marshal-unmarshal-number driver blob))
           ((or (eq obj 'list)
                (and (consp obj) (eq (car obj) 'list)))
-           (marshal-unmarshal-list driver blob obj)))))
+           (marshal-unmarshal-list driver blob obj))
+          ((or (eq obj 'hash)
+               (and (consp obj) (eq (car obj) 'hash)))
+           (marshal-unmarshal-hash driver blob obj)))))
 
 (defmethod unmarshal--internal ((obj marshal-base) blob type)
   (let ((type (or (and (class-p type)
