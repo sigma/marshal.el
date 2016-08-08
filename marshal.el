@@ -418,7 +418,7 @@
 
 ;;;###autoload
 (defmacro marshal-defclass (name superclass slots &rest options-and-doc)
-  (declare (debug t))
+  (declare (debug t) (indent 2))
   (let* ((options (if (stringp (car options-and-doc))
                       (cdr options-and-doc)
                       options-and-doc))
