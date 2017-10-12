@@ -123,6 +123,8 @@
 (defun marshal-register-driver (type driver)
   (add-to-list 'marshal-drivers (cons type driver)))
 
+(defconst marshal-subclass-discriminator-slot-name :-cls)
+
 ;;; Marshalling driver interface
 
 (defclass marshal-driver ()
@@ -192,12 +194,18 @@
                               (car l) type)
           (unmarshal-internal l-type (cdr l) type))))
 
+(defmethod marshal-marshal-list-of-same-class-subtypes :static ((obj marshal-driver) l write-discriminators)
+  (unless (null l)
+    (let ((type (or (and (object-p obj) (eieio-object-class obj))
+                    obj)))
+      (mapcar (lambda (el) (marshal-internal el type write-discriminators)) l))))
+
 (defmethod marshal-marshal-list :static ((obj marshal-driver) l)
   (unless (null l)
     (let ((type (or (and (object-p obj) (eieio-object-class obj))
                     obj)))
-      (cons (marshal-internal (car l) type)
-            (marshal-internal (cdr l) type)))))
+      (cons (marshal-internal (car l) type nil)
+            (marshal-internal (cdr l) type nil)))))
 
 (defmethod marshal-unmarshal-hash :static ((obj marshal-driver) h h-type)
   (let ((type (or (and (object-p obj) (eieio-object-class obj))
@@ -214,8 +222,8 @@
     (let ((type (or (and (object-p obj) (eieio-object-class obj))
                     obj)))
       (mapcar (lambda (item)
-                (cons (marshal-internal (car item) type)
-                      (marshal-internal (cadr item) type)))
+                (cons (marshal-internal (car item) type nil)
+                      (marshal-internal (cadr item) type nil)))
               (ht-items h)))))
 
 ;;; alist-based driver
@@ -323,27 +331,35 @@
                  'marshal-driver)))
     (make-instance cls)))
 
-(defmethod marshal-internal ((obj marshal-base) type &optional hint)
+(defmethod marshal-internal ((obj marshal-base) type write-discriminator &optional hint)
   (let* ((type (or (and (class-p type)
                         (car (rassoc type marshal-drivers)))
                    type))
          (driver (marshal-get-driver type))
-         (marshal-info (cdr (assoc type (marshal-get-marshal-info obj)))))
+         (marshal-info (cdr (assoc type (marshal-get-marshal-info obj))))
+         (obj-class (eieio-object-class obj)))
     (marshal-open driver)
     (when marshal-info
+
+      (when write-discriminator
+        (marshal-write driver marshal-subclass-discriminator-slot-name (symbol-name obj-class)))
+
       (dolist (s (object-slots obj))
-        (let ((path (cdr (assoc s marshal-info))))
+        (let* ((path (cdr (assoc s marshal-info)))
+              (slot-type (cdr (assoc s (marshal-get-type-info obj))))
+              (abstract-slot (and (class-p slot-type) (class-abstract-p slot-type))))
           (when (and path
                      (slot-boundp obj s))
-            
+
             (marshal-write driver path
                            (marshal-internal
                             (eieio-oref obj s)
                             type
+                            abstract-slot
                             (cdr (assoc s (marshal-get-type-info obj)))))))))
     (marshal-close driver)))
 
-(defmethod marshal-internal ((obj nil) type &optional hint)
+(defmethod marshal-internal ((obj nil) type write-discriminator &optional hint)
   (let ((driver (marshal-get-driver type)))
     (cond ((and (null hint) (null obj))
            (marshal-marshal-null driver))
@@ -354,6 +370,8 @@
            (marshal-marshal-string driver obj))
           ((numberp obj)
            (marshal-marshal-number driver obj))
+          ((and (listp obj) (class-p (cadr hint)) (class-abstract-p (cadr hint)))
+           (marshal-marshal-list-of-same-class-subtypes driver obj t))
           ((listp obj)
            (marshal-marshal-list driver obj))
           ((ht? obj)
@@ -363,7 +381,7 @@
 (defun marshal (obj type)
   (let ((driver (marshal-get-driver type)))
     (marshal-postprocess driver
-                         (marshal-internal obj type))))
+                         (marshal-internal obj type nil))))
 
 (defmethod unmarshal--obj ((obj marshal-base) blob type)
   (let ((driver (marshal-get-driver type))
