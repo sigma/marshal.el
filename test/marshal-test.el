@@ -138,5 +138,36 @@
                                'json)
                     'json)))))
 
+(marshal-defclass marshal-test:discriminators-container ()
+  ((numfield :initarg :numfield
+             :type number
+             :marshal ((plist . :numfield)))
+   (base :initarg :base
+         :type marshal-test:discriminators-base
+         :marshal ((plist . :base)))
+   (base-list :initarg :base-list
+              :type list
+              :marshal-type (list marshal-test:discriminators-base)
+              :marshal ((plist . :base-list)))))
+
+(marshal-defclass marshal-test:discriminators-base () ()
+                  :abstract t)
+(marshal-defclass marshal-test:discriminators-child (marshal-test:discriminators-base)
+  ((stringfield :initarg :stringfield
+                :type string
+                :marshal ((plist . :stringfield)))))
+
+(ert-deftest marshal-test:discriminators ()
+  (let* ((obj (marshal-test:discriminators-container :numfield 5
+                                                    :base (marshal-test:discriminators-child :stringfield "hello")
+                                                    :base-list (cons
+                                                                (marshal-test:discriminators-child :stringfield "foo")
+                                                                (list (marshal-test:discriminators-child :stringfield "bar")))))
+         (marshalled (marshal obj 'plist)))
+    (should (equal marshalled
+                   '(:numfield 5 :base (:-cls "marshal-test:discriminators-child" :stringfield "hello")
+                               :base-list ((:-cls "marshal-test:discriminators-child" :stringfield "foo")
+                                           (:-cls "marshal-test:discriminators-child" :stringfield "bar")))))))
+
 (provide 'marshal-test)
 ;;; marshal-test.el ends here
