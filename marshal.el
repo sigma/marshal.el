@@ -426,6 +426,8 @@
                                 'ignore))
          (base-cls (or (plist-get options :marshal-base-cls)
                        'marshal-base))
+         (cls-slot (or (plist-get options :marshal-class-slot)
+                       :-cls))
          (marshal-info (marshal--transpose-alist2
                         (remove nil
                                 (mapcar
@@ -455,6 +457,14 @@
        (defclass ,name (,@superclass ,base-cls)
          (,@slots)
          ,@options-and-doc)
+
+       (defmethod marshal-get-class-slot :static ((obj ,name))
+         (let ((cls (if (eieio-object-p obj)
+                        (eieio-object-class obj)
+                      obj)))
+           (get cls :marshal-class-slot)))
+
+       (put ',name :marshal-class-slot ',cls-slot)
 
        (defmethod marshal-get-marshal-info :static ((obj ,name))
          (let ((cls (if (eieio-object-p obj)
