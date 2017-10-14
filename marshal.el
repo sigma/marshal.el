@@ -331,11 +331,13 @@
          (marshal-info (cdr (assoc type (marshal-get-marshal-info obj)))))
     (marshal-open driver)
     (when marshal-info
+      (when (and hint (not (eq hint (eieio-object-class obj))))
+        (marshal-write driver (marshal-get-class-slot hint)
+                       (eieio-object-class obj)))
       (dolist (s (object-slots obj))
         (let ((path (cdr (assoc s marshal-info))))
           (when (and path
                      (slot-boundp obj s))
-            
             (marshal-write driver path
                            (marshal-internal
                             (eieio-oref obj s)
