@@ -331,11 +331,13 @@
          (marshal-info (cdr (assoc type (marshal-get-marshal-info obj)))))
     (marshal-open driver)
     (when marshal-info
+      (when (and hint (not (eq hint (eieio-object-class obj))))
+        (marshal-write driver (marshal-get-class-slot hint)
+                       (eieio-object-class obj)))
       (dolist (s (object-slots obj))
         (let ((path (cdr (assoc s marshal-info))))
           (when (and path
                      (slot-boundp obj s))
-            
             (marshal-write driver path
                            (marshal-internal
                             (eieio-oref obj s)
@@ -383,7 +385,12 @@
 
 (defun unmarshal-internal (obj blob type)
   (let ((obj (if (class-p obj)
-                 (make-instance obj)
+                 (let ((driver (marshal-get-driver type)))
+                   (marshal-open driver blob)
+                   (let ((cls (or (marshal-read driver (marshal-get-class-slot obj))
+                                  obj)))
+                     (marshal-close driver)
+                     (make-instance cls)))
                obj)))
     (unmarshal--internal obj blob type)))
 
@@ -426,6 +433,8 @@
                                 'ignore))
          (base-cls (or (plist-get options :marshal-base-cls)
                        'marshal-base))
+         (cls-slot (or (plist-get options :marshal-class-slot)
+                       :-cls))
          (marshal-info (marshal--transpose-alist2
                         (remove nil
                                 (mapcar
@@ -455,6 +464,14 @@
        (defclass ,name (,@superclass ,base-cls)
          (,@slots)
          ,@options-and-doc)
+
+       (defmethod marshal-get-class-slot :static ((obj ,name))
+         (let ((cls (if (eieio-object-p obj)
+                        (eieio-object-class obj)
+                      obj)))
+           (get cls :marshal-class-slot)))
+
+       (put ',name :marshal-class-slot ',cls-slot)
 
        (defmethod marshal-get-marshal-info :static ((obj ,name))
          (let ((cls (if (eieio-object-p obj)
