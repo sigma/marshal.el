@@ -386,10 +386,16 @@
 (defun unmarshal-internal (obj blob type)
   (let ((obj (if (class-p obj)
                  (let ((driver (marshal-get-driver type)))
-                   (marshal-open driver blob)
-                   (let ((cls (or (marshal-read driver (marshal-get-class-slot obj))
-                                  obj)))
-                     (marshal-close driver)
+                   (let ((cls (or (and
+                                   (not (null blob))
+                                   (let ((driver (marshal-get-driver type)))
+                                     (prog2
+                                         (marshal-open driver blob)
+                                         (marshal-read
+                                          driver
+                                          (marshal-get-class-slot obj))
+                                       (marshal-close driver))))
+                                  obj))) 
                      (make-instance cls)))
                obj)))
     (unmarshal--internal obj blob type)))

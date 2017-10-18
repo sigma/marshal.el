@@ -158,5 +158,10 @@
                 'marshal-test:derived))
     (should (equal (oref (oref unmarsh :obj) :b) 0))))
 
+(ert-deftest marshal-test:null-blob ()
+  (should (eq 'marshal-test:level0
+              (eieio-object-class
+               (unmarshal 'marshal-test:level0 nil nil)))))
+
 (provide 'marshal-test)
 ;;; marshal-test.el ends here
