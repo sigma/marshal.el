@@ -30,6 +30,9 @@
 (require 'ht)
 (require 'marshal)
 
+(when (require 'undercover nil t)
+  (undercover "*.el" "marshal.el/*.el"))
+
 (marshal-defclass marshal-test:plop ()
   ((foo :initarg :foo :type string :marshal ((alist . field_foo)))
    (bar :initarg :bar :type integer :marshal ((alist . field_bar)))
