@@ -9,4 +9,5 @@
 
 (development
   (depends-on "ert-runner")
-  (depends-on "shut-up"))
+  (depends-on "shut-up")
+  (depends-on "undercover"))
