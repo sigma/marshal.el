@@ -50,9 +50,9 @@
          (unmarshal 'marshal-test:plop
                     '((field_foo . "plop") (field_bar . 0) (field_baz . 1))
                     'alist)))
-    (should (equal (oref obj :foo) "plop"))
-    (should (equal (oref obj :bar) 0))
-    (should (equal (oref obj :baz) 1))))
+    (should (equal (eieio-oref obj :foo) "plop"))
+    (should (equal (eieio-oref obj :bar) 0))
+    (should (equal (eieio-oref obj :baz) 1))))
 
 (marshal-defclass marshal-test:tree ()
   ((root :initarg :id :marshal ((plist . :root) json))
@@ -156,7 +156,7 @@
          (unmarsh (unmarshal 'marshal-test:composite marsh 'plist)))
     (should (eq (plist-get (plist-get marsh 'obj) :clazz)
                 'marshal-test:derived))
-    (should (equal (oref (oref unmarsh :obj) :b) 0))))
+    (should (equal (eieio-oref (eieio-oref unmarsh :obj) :b) 0))))
 
 (ert-deftest marshal-test:null-blob ()
   (should (eq 'marshal-test:level0
