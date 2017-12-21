@@ -105,6 +105,12 @@
   (require 'cl)
   (require 'cl-generic))
 
+;;; eieio backward-compatibility
+(dolist (sym '(object-class object-p oref oset))
+  (let ((new-sym (intern (concat "eieio-" (symbol-name sym)))))
+    (unless (fboundp new-sym)
+      (fset new-sym sym))))
+
 ;;; json hotfix
 (when (json-alist-p '(((foo))))
   (defun json-alist-p (list)
