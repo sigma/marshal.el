@@ -328,8 +328,10 @@
     (make-instance cls)))
 
 (defun marshal-object-slots (obj)
-  (mapcar #'cl--slot-descriptor-name
-          (eieio-class-slots (eieio--object-class obj))))
+  (if (fboundp 'eieio-class-slots) ;; Emacs 25+
+      (mapcar #'cl--slot-descriptor-name
+              (eieio-class-slots (eieio--object-class obj)))
+    (object-slots obj)))
 
 (cl-defmethod marshal-internal ((obj marshal-base) type &optional hint)
   (let* ((type (or (and (class-p type)
