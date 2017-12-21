@@ -326,11 +326,13 @@
                         (car (rassoc type marshal-drivers)))
                    type))
          (driver (marshal-get-driver type))
-         (marshal-info (cdr (assoc type (marshal-get-marshal-info obj)))))
+         (marshal-info (cdr (assoc type (marshal-get-marshal-info
+                                         (eieio-object-class obj))))))
     (marshal-open driver)
     (when marshal-info
       (when (and hint (not (eq hint (eieio-object-class obj))))
-        (marshal-write driver (marshal-get-class-slot hint)
+        (marshal-write driver
+                       (marshal-get-class-slot hint)
                        (eieio-object-class obj)))
       (dolist (s (eieio-class-slots (eieio--object-class obj)))
         (let ((path (cdr (assoc s marshal-info))))
