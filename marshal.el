@@ -144,7 +144,7 @@
   (when (slot-boundp obj :output)
     (eieio-oref obj :output)))
 
-(cl-defmethod marshal-guess-type ((obj (subclass marshal-driver)) blob)
+(cl-defmethod marshal-guess-type ((obj marshal-driver) blob)
   (cond ((null blob) nil)
         ((booleanp blob) 'bool)
         ((stringp blob) 'string)
@@ -158,31 +158,31 @@
 (cl-defmethod marshal-postprocess ((obj marshal-driver) blob)
   blob)
 
-(cl-defmethod marshal-unmarshal-null ((obj (subclass marshal-driver)))
+(cl-defmethod marshal-unmarshal-null ((obj marshal-driver))
   nil)
 
-(cl-defmethod marshal-marshal-null ((obj (subclass marshal-driver)))
+(cl-defmethod marshal-marshal-null ((obj marshal-driver))
   nil)
 
-(cl-defmethod marshal-unmarshal-string ((obj (subclass marshal-driver)) s)
+(cl-defmethod marshal-unmarshal-string ((obj marshal-driver) s)
   (format "%s" s))
 
-(cl-defmethod marshal-marshal-string ((obj (subclass marshal-driver)) s)
+(cl-defmethod marshal-marshal-string ((obj marshal-driver) s)
   s)
 
-(cl-defmethod marshal-unmarshal-number ((obj (subclass marshal-driver)) i)
+(cl-defmethod marshal-unmarshal-number ((obj marshal-driver) i)
   i)
 
-(cl-defmethod marshal-marshal-number ((obj (subclass marshal-driver)) i)
+(cl-defmethod marshal-marshal-number ((obj marshal-driver) i)
   i)
 
-(cl-defmethod marshal-unmarshal-bool ((obj (subclass marshal-driver)) b)
+(cl-defmethod marshal-unmarshal-bool ((obj marshal-driver) b)
   (equal b t))
 
-(cl-defmethod marshal-marshal-bool ((obj (subclass marshal-driver)) b)
+(cl-defmethod marshal-marshal-bool ((obj marshal-driver) b)
   (equal b t))
 
-(cl-defmethod marshal-unmarshal-list ((obj (subclass marshal-driver)) l l-type)
+(cl-defmethod marshal-unmarshal-list ((obj marshal-driver) l l-type)
   (let ((type (or (and (eieio-object-p obj) (eieio-object-class obj))
                   obj)))
     (cons (unmarshal-internal (when (consp l-type)
@@ -190,14 +190,14 @@
                               (car l) type)
           (unmarshal-internal l-type (cdr l) type))))
 
-(cl-defmethod marshal-marshal-list ((obj (subclass marshal-driver)) l)
+(cl-defmethod marshal-marshal-list ((obj marshal-driver) l)
   (unless (null l)
     (let ((type (or (and (eieio-object-p obj) (eieio-object-class obj))
                     obj)))
       (cons (marshal-internal (car l) type)
             (marshal-internal (cdr l) type)))))
 
-(cl-defmethod marshal-unmarshal-hash ((obj (subclass marshal-driver)) h h-type)
+(cl-defmethod marshal-unmarshal-hash ((obj marshal-driver) h h-type)
   (let ((type (or (and (eieio-object-p obj) (eieio-object-class obj))
                   obj))
         (k-type (when (consp h-type) (nth 1 h-type)))
@@ -207,7 +207,7 @@
                (cons (unmarshal-internal k-type (car item) type)
                      (unmarshal-internal v-type (cdr item) type))) h))))
 
-(cl-defmethod marshal-marshal-hash ((obj (subclass marshal-driver)) h)
+(cl-defmethod marshal-marshal-hash ((obj marshal-driver) h)
   (unless (ht-empty? h)
     (let ((type (or (and (eieio-object-p obj) (eieio-object-class obj))
                     obj)))
@@ -242,10 +242,10 @@
 (cl-defmethod marshal-postprocess ((obj marshal-driver-json) blob)
   (json-encode (cl-call-next-method)))
 
-(cl-defmethod marshal-unmarshal-bool ((obj (subclass marshal-driver-json)) b)
+(cl-defmethod marshal-unmarshal-bool ((obj marshal-driver-json) b)
   (not (eq b json-false)))
 
-(cl-defmethod marshal-marshal-bool ((obj (subclass marshal-driver-json)) b)
+(cl-defmethod marshal-marshal-bool ((obj marshal-driver-json) b)
   (or b json-false))
 
 ;;; plist-based driver
