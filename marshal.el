@@ -346,7 +346,8 @@
                            (marshal-internal
                             (eieio-oref obj s)
                             type
-                            (cdr (assoc s (marshal-get-type-info obj)))))))))
+                            (cdr (assoc s (marshal-get-type-info
+                                           (eieio-object-class obj))))))))))
     (marshal-close driver)))
 
 (cl-defmethod marshal-internal (obj type &optional hint)
@@ -381,7 +382,8 @@
           (when path
             (eieio-oset obj s
                         (unmarshal-internal
-                         (cdr (assoc s (marshal-get-type-info obj)))
+                         (cdr (assoc s (marshal-get-type-info
+                                        (eieio-object-class obj))))
                          (marshal-read driver path)
                          type))))))
     (marshal-close driver)
