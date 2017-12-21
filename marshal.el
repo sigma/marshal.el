@@ -374,7 +374,8 @@
 
 (cl-defmethod unmarshal--obj ((obj marshal-base) blob type)
   (let ((driver (marshal-get-driver type))
-        (marshal-info (cdr (assoc type (marshal-get-marshal-info obj)))))
+        (marshal-info (cdr (assoc type (marshal-get-marshal-info
+                                        (eieio-object-class obj))))))
     (marshal-open driver blob)
     (when (and marshal-info blob)
       (dolist (s (marshal-object-slots obj))
