@@ -321,6 +321,10 @@
                  'marshal-driver)))
     (make-instance cls)))
 
+(defun marshal-object-slots (obj)
+  (mapcar #'cl--slot-descriptor-name
+          (eieio-class-slots (eieio--object-class obj))))
+
 (cl-defmethod marshal-internal ((obj marshal-base) type &optional hint)
   (let* ((type (or (and (class-p type)
                         (car (rassoc type marshal-drivers)))
@@ -334,7 +338,7 @@
         (marshal-write driver
                        (marshal-get-class-slot hint)
                        (eieio-object-class obj)))
-      (dolist (s (eieio-class-slots (eieio--object-class obj)))
+      (dolist (s (marshal-object-slots obj))
         (let ((path (cdr (assoc s marshal-info))))
           (when (and path
                      (slot-boundp obj s))
@@ -372,7 +376,7 @@
         (marshal-info (cdr (assoc type (marshal-get-marshal-info obj)))))
     (marshal-open driver blob)
     (when (and marshal-info blob)
-      (dolist (s (eieio-class-slots (eieio--object-class obj)))
+      (dolist (s (marshal-object-slots obj))
         (let ((path (cdr (assoc s marshal-info))))
           (when path
             (eieio-oset obj s
