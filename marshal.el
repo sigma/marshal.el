@@ -97,9 +97,7 @@
 
 ;;; Code:
 
-(require 'json)
 (require 'eieio)
-(require 'ht)
 
 ;;; eieio backward-compatibility
 (dolist (sym '(object-class object-p oref oset))
@@ -108,13 +106,22 @@
       (fset new-sym sym))))
 
 ;;; json hotfix
-(when (json-alist-p '(((foo))))
-  (defun json-alist-p (list)
-    (while (consp list)
-      (setq list (if (and (consp (car list)) (atom (caar list)))
-                     (cdr list)
-                   'not-alist)))
-    (null list)))
+(eval-after-load 'json
+  '(when (json-alist-p '(((foo))))
+     (defun json-alist-p (list)
+       (while (consp list)
+         (setq list (if (and (consp (car list)) (atom (caar list)))
+                        (cdr list)
+                      'not-alist)))
+       (null list))))
+
+;;; load json library lazily
+(autoload 'json-encode "json")
+(autoload 'json-read-from-string "json")
+
+;;; load ht library lazily
+(autoload 'ht-empty? "ht")
+(autoload 'ht-items "ht")
 
 ;;; Defined drivers
 
@@ -238,17 +245,18 @@
 
 (defmethod marshal-preprocess ((obj marshal-driver-json) blob)
   (let ((json-array-type 'list)
-        (json-object-type 'alist))
+        (json-object-type 'alist)
+        (json-false :json-false))
     (json-read-from-string (call-next-method))))
 
 (defmethod marshal-postprocess ((obj marshal-driver-json) blob)
   (json-encode (call-next-method)))
 
 (defmethod marshal-unmarshal-bool :static ((obj marshal-driver-json) b)
-  (not (eq b json-false)))
+  (not (eq b :json-false)))
 
 (defmethod marshal-marshal-bool :static ((obj marshal-driver-json) b)
-  (or b json-false))
+  (or b :json-false))
 
 ;;; plist-based driver
 
