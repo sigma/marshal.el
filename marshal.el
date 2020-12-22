@@ -1,12 +1,12 @@
 ;;; marshal.el --- eieio extension for automatic (un)marshalling
 
-;; Copyright (C) 2015  Yann Hodique
+;; Copyright (C) 2015-2020 Yann Hodique
 
-;; Author: Yann Hodique <hodiquey@vmware.com>
-;; Keywords: eieio
-;; Version: 0.8.2
+;; Author: Yann Hodique <yann.hodique@gmail.com>
+;; Keywords: extensions
+;; Version: 0.9.0
 ;; URL: https://github.com/sigma/marshal.el
-;; Package-Requires: ((eieio "1.4") (json "1.3") (ht "2.1"))
+;; Package-Requires: ((emacs "25.1") (ht "2.1"))
 
 ;; This file is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -98,23 +98,7 @@
 ;;; Code:
 
 (require 'eieio)
-
-;;; eieio backward-compatibility
-(dolist (sym '(object-class object-p oref oset))
-  (let ((new-sym (intern (concat "eieio-" (symbol-name sym)))))
-    (unless (fboundp new-sym)
-      (fset new-sym sym))))
-
-;;; json hotfix
-(eval-after-load 'json
-  '(when (json-alist-p '(((foo))))
-     (defun json-alist-p (list)
-       (while (consp list)
-         (setq list (if (and (consp (car list)) (atom (caar list)))
-                        (cdr list)
-                      'not-alist)))
-       (null list))))
-
+ 
 ;;; load json library lazily
 (dolist (sym '(json-encode json-read-from-string))
   (autoload sym "json"))
@@ -192,7 +176,7 @@
   (equal b t))
 
 (defmethod marshal-unmarshal-list :static ((obj marshal-driver) l l-type)
-  (let ((type (or (and (object-p obj) (eieio-object-class obj))
+  (let ((type (or (and (eieio-object-p obj) (eieio-object-class obj))
                   obj)))
     (cons (unmarshal-internal (when (consp l-type)
                                 (cadr l-type))
@@ -201,13 +185,13 @@
 
 (defmethod marshal-marshal-list :static ((obj marshal-driver) l)
   (unless (null l)
-    (let ((type (or (and (object-p obj) (eieio-object-class obj))
+    (let ((type (or (and (eieio-object-p obj) (eieio-object-class obj))
                     obj)))
       (cons (marshal-internal (car l) type)
             (marshal-internal (cdr l) type)))))
 
 (defmethod marshal-unmarshal-hash :static ((obj marshal-driver) h h-type)
-  (let ((type (or (and (object-p obj) (eieio-object-class obj))
+  (let ((type (or (and (eieio-object-p obj) (eieio-object-class obj))
                   obj))
         (k-type (when (consp h-type) (nth 1 h-type)))
         (v-type (when (consp h-type) (nth 2 h-type))))
@@ -218,7 +202,7 @@
 
 (defmethod marshal-marshal-hash :static ((obj marshal-driver) h)
   (unless (ht-empty? h)
-    (let ((type (or (and (object-p obj) (eieio-object-class obj))
+    (let ((type (or (and (eieio-object-p obj) (eieio-object-class obj))
                     obj)))
       (mapcar (lambda (item)
                 (cons (marshal-internal (car item) type)
